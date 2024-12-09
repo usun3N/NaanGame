@@ -191,15 +191,27 @@ class MainMenu(Scene):
                     print("aaa")
 
 class PauseMenu(Overlay):
+    def setup(self):
+        self.buttons = {}
+        self.buttons["back"] = Button("Back", (600, 500), (100, 50), (100, 100, 100))
+
     def process(self):
         screen = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
         screen.fill((0, 0, 0, 200))
 
         text = Tools.text_surface("Pause Menu", 100, (255, 255, 255))
         screen.blit(text, (50, 50))
+        for button in self.buttons.values():
+            button.update(screen)
         return screen
     
     def event(self, event_list):
+        actions = self.root_scene.main.controll_manager.update(event_list)
+        if actions["pause"]:
+            actions["pause"] = False
+            self.close()
+        if self.buttons["back"].get_clicked_once():
+            self.close()
         for event in event_list:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
@@ -233,7 +245,7 @@ class CharacterSelect(Scene):
     def setup(self):
         self.buttons = {}
         self.buttons["back"] = Button("Back", (600, 500), (100, 50), (100, 100, 100))
-        self.buttons["start"] = Button("Start", (100, 200), (100, 50), (100, 100, 100))
+        self.buttons["start"] = Button("Start", (100, 500), (100, 50), (100, 100, 100))
     def process(self):
         screen = self.main.screen
         screen.fill((255, 255, 255))
@@ -271,20 +283,20 @@ class Ingame(Scene):
     def event(self, event_list: list[pg.event.Event]):
         actions = self.main.controll_manager.update(event_list)
         speed = 2
-        if actions["dash"] > 0 and self.player.can_dash:
+        if actions["dash"] and self.player.can_dash:
             speed = 7
             self.player.decrease_stamina(1)
-        if actions["move_left"] > 0:
+        if actions["move_left"]:
             self.player.move((-speed, 0))
-        if actions["move_right"] > 0:
+        if actions["move_right"]:
             self.player.move((speed, 0))
-        if actions["move_up"] > 0:
+        if actions["move_up"]:
             self.player.move((0, -speed))
-        if actions["move_down"] > 0:
+        if actions["move_down"]:
             self.player.move((0, speed))
-        if actions["pause"] > 0:
+        if actions["pause"]:
+            actions["pause"] = False
             self.overlays.append(PauseMenu(self))
-            actions["pause"] = 0
 
 class Bar:
     def __init__(self, coordinate: tuple[int, int], size: tuple[int, int], max_value, value, color, show_value=True):
@@ -319,8 +331,6 @@ class Bar:
             text = Tools.text_surface(f"{self.value}/{self.max_value}", 30, (255, 255, 255))
             bar_surface.blit(text, (self.width / 2 - text.get_width() / 2, self.height / 2 - text.get_height() / 2))
         screen.blit(bar_surface, (self.x, self.y))
-        
-
 
 
 class Player(pg.sprite.Sprite):
@@ -387,32 +397,36 @@ class ControllManager:
             "move_down": pg.K_s,
             "dash": pg.K_LSHIFT,
             "pause": pg.K_p,
-            "blink": pg.K_SPACE
+            "skill1": pg.K_q,
+            "skill2": pg.K_e,
+            "skill3": pg.K_SPACE
         }
         self.key_hold = {
-            "move_left": 0,
-            "move_right": 0,
-            "move_up": 0,
-            "move_down": 0,
-            "dash": 0,
-            "pause": 0,
-            "blink": 0
+            "move_left": False,
+            "move_right": False,
+            "move_up": False,
+            "move_down": False,
+            "dash": False,
+            "pause": False,
+            "skill1": False,
+            "skill2": False,
+            "skill3": False
         }
+
 
     def set_key(self, key, action):
         self.key_map[action] = key
 
     def update(self, events: list[pg.event.Event]):
-        actions = []
         for event in events:
             if event.type == pg.KEYDOWN:
                 for action, key in self.key_map.items():
                     if event.key == key:
-                        self.key_hold[action] += 1
+                        self.key_hold[action] = True
             if event.type == pg.KEYUP:
                 for action, key in self.key_map.items():
                     if event.key == key:
-                        self.key_hold[action] = 0
+                        self.key_hold[action] = False
         return self.key_hold
 
                 
