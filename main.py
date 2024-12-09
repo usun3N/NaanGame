@@ -12,6 +12,7 @@ class Tools:
 
     def shift_color(color: tuple[int, int, int], shift: int) -> tuple[int, int, int]:
         color = [i + shift if i + shift <= 255 else 255 for i in color]
+        color = [i + shift if i + shift >= 0 else 0 for i in color]
         return color
 
     
@@ -253,21 +254,24 @@ class Ingame(Scene):
         self.enemies = pg.sprite.Group()
         self.projectiles = pg.sprite.Group()
         self.items = []
+        self.ui = {}
+        self.ui["hp_bar"] = Bar((0, 0), (400, 30), self.player.max_hp, self.player.hp, (255, 0, 0), True)
+        self.ui["stamina_bar"] = Bar((0, 30), (400, 30), self.player.max_stamina, self.player.stamina, (0, 0, 255), True)
 
     def process(self):
         screen = self.main.screen
         screen.fill((255, 255, 255))
-        text = Tools.text_surface(f"{self.player.stamina}", 30, (0, 0, 0))
-        screen.blit(text, (50, 50))
-        text = Tools.text_surface(f"{self.player.stamina_cooldown}", 30, (0, 0, 0))
-        screen.blit(text, (50, 100))
         self.player.update()
         self.player.draw(screen)
+        self.ui["hp_bar"].value = self.player.hp
+        self.ui["stamina_bar"].value = self.player.stamina
+        for ui in self.ui.values():
+            ui.update(screen)
     
     def event(self, event_list: list[pg.event.Event]):
         actions = self.main.controll_manager.update(event_list)
         speed = 2
-        if actions["dash"] > 0 and self.player.stamina > 0:
+        if actions["dash"] > 0 and self.player.can_dash:
             speed = 7
             self.player.decrease_stamina(1)
         if actions["move_left"] > 0:
@@ -282,6 +286,42 @@ class Ingame(Scene):
             self.overlays.append(PauseMenu(self))
             actions["pause"] = 0
 
+class Bar:
+    def __init__(self, coordinate: tuple[int, int], size: tuple[int, int], max_value, value, color, show_value=True):
+        self.x, self.y = coordinate
+        self.width, self.height = size
+        self.color = color
+        self.max_value = max_value
+        self.value = value
+        self.show_value = show_value
+        self.ghost = self.value
+        self.decrease_rate = 0.5
+
+    def update(self, screen: pg.Surface):
+        if self.value > self.max_value:
+            self.value = self.max_value
+        if self.value < 0:
+            self.value = 0
+        if self.value < self.ghost:
+            self.ghost -= self.decrease_rate
+        else:
+            self.ghost = self.value
+        self.render(screen)
+
+    def render(self, screen: pg.Surface):
+        bar_surface = pg.Surface((self.width, self.height))
+        bar_surface.fill(Tools.shift_color(self.color, -100))
+        per = self.value / self.max_value
+        per_ghost = self.ghost / self.max_value
+        pg.draw.rect(bar_surface, Tools.shift_color(self.color, -50), (0, 0, self.width * per_ghost, self.height))
+        pg.draw.rect(bar_surface, self.color, (0, 0, self.width * per, self.height))
+        if self.show_value:
+            text = Tools.text_surface(f"{self.value}/{self.max_value}", 30, (255, 255, 255))
+            bar_surface.blit(text, (self.width / 2 - text.get_width() / 2, self.height / 2 - text.get_height() / 2))
+        screen.blit(bar_surface, (self.x, self.y))
+        
+
+
 
 class Player(pg.sprite.Sprite):
     def __init__(self):
@@ -289,12 +329,12 @@ class Player(pg.sprite.Sprite):
         self.y = 0
         self.hp = 100
         self.max_hp = 100
-        self.stamina = 50
-        self.max_stamina = 50
+        self.max_stamina = 150
+        self.stamina = self.max_stamina
         self.stamina_cooldown = 0
-        self.stamina_decreasing = False
-        self.stamina_regen = False
-        self.image = pg.image.load("discord.png")
+        self.can_dash = True
+        self.image = pg.Surface((50, 50))
+        self.image.fill((0, 0, 0))
         self.rect = self.image.get_rect()
 
     def decrease_stamina(self, amount: int):
@@ -302,29 +342,29 @@ class Player(pg.sprite.Sprite):
             self.stamina = 0
         else:
             self.stamina -= amount
-        self.stamina_cooldown += 1
-        self.stamina_decreasing = True
+        self.stamina_cooldown = 60
     
     def increase_stamina(self, amount: int):
         if self.stamina + amount > self.max_stamina:
             self.stamina = self.max_stamina
         else:
             self.stamina += amount
-
+    
     def move(self, direction: tuple[int, int]):
         vx, vy = direction
         self.x += vx
         self.y += vy
     
     def update(self):
+        if self.stamina == self.max_stamina:
+            self.can_dash = True
+        elif self.stamina == 0:
+            self.can_dash = False
+
         if self.stamina_cooldown > 0:
-            if not self.stamina_decreasing:
-                self.stamina_cooldown -= 1
+            self.stamina_cooldown -= 1
         else:
-            self.stamina_regen = True
-        if self.stamina_regen:
             self.increase_stamina(1)
-        self.stamina_decreasing = False
 
     def draw(self, screen: pg.Surface):
         screen.blit(self.image, (self.x, self.y))
@@ -346,7 +386,8 @@ class ControllManager:
             "move_up": pg.K_w,
             "move_down": pg.K_s,
             "dash": pg.K_LSHIFT,
-            "pause": pg.K_p
+            "pause": pg.K_p,
+            "blink": pg.K_SPACE
         }
         self.key_hold = {
             "move_left": 0,
@@ -354,7 +395,8 @@ class ControllManager:
             "move_up": 0,
             "move_down": 0,
             "dash": 0,
-            "pause": 0
+            "pause": 0,
+            "blink": 0
         }
 
     def set_key(self, key, action):
