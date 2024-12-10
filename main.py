@@ -1,4 +1,5 @@
 import pygame as pg
+import json
 
 pg.init()
 pg.mixer.init()
@@ -265,10 +266,26 @@ class Ingame(Scene):
         self.player = Player()
         self.enemies = pg.sprite.Group()
         self.projectiles = pg.sprite.Group()
+        self.images = {}
         self.items = []
         self.ui = {}
         self.ui["hp_bar"] = Bar((0, 0), (400, 30), self.player.max_hp, self.player.hp, (255, 0, 0), True)
         self.ui["stamina_bar"] = Bar((0, 30), (400, 30), self.player.max_stamina, self.player.stamina, (0, 0, 255), True)
+
+    def image_load(self, type:str, name:str):
+        with open("./images_path.json", "r") as f:
+            images_path = json.load(f)
+            for key, value in images_path[type][name].items():
+                self.images[type][name][key] = pg.image.load(value).convert_alpha()
+
+    def get_image(self, type:str, name:str, key:str):
+        try:
+            return self.images[type][name][key]
+        except KeyError:
+            self.image_load(type, name)
+            return self.images[type][name][key]
+        
+
 
     def process(self):
         screen = self.main.screen
@@ -378,9 +395,8 @@ class Player(pg.sprite.Sprite):
 
     def draw(self, screen: pg.Surface):
         screen.blit(self.image, (self.x, self.y))
-        
 
-        
+
 
 class Enemy(pg.sprite.Sprite):
     def __init__(self):

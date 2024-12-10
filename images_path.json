@@ -1,0 +1,10 @@
+{
+    "player": {
+        "U": {
+            "idle1": "./asset/player/U/idle1.png",
+            "idle2": "./asset/player/U/idle2.png",
+            "walk1": "./asset/player/U/walk1.png",
+            "walk2": "./asset/player/U/walk2.png"
+        }
+    }
+}
