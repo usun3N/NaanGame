@@ -1,10 +1,15 @@
 {
     "player": {
         "U": {
-            "idle1": "./asset/player/U/idle1.png",
-            "idle2": "./asset/player/U/idle2.png",
-            "walk1": "./asset/player/U/walk1.png",
-            "walk2": "./asset/player/U/walk2.png"
+            "idle": {
+                "0": "assets/player/U/idle/0.png",
+                "1": "assets/player/U/idle/1.png"
+            },
+            "walk": {
+                "0": "assets/player/U/walk/0.png",
+                "1": "assets/player/U/walk/1.png"
+            }
+
         }
     }
 }

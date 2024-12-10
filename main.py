@@ -15,7 +15,6 @@ class Tools:
         color = [i + shift if i + shift <= 255 else 255 for i in color]
         color = [i + shift if i + shift >= 0 else 0 for i in color]
         return color
-
     
 class Clickable:
     def __init__(self, coordinate: tuple[int, int], size: tuple[int, int]) -> None:
@@ -65,10 +64,6 @@ class Clickable:
         res = (self.left == 1, self.middle == 1, self.right == 1)
         return res[button]
 
-        
-
-
-
     
 class Button(Clickable):
     def __init__(self, text: str, coordinate: tuple[int, int], size: tuple[int, int], color: tuple[int, int, int]) -> None:
@@ -97,7 +92,6 @@ class Main:
         self.running = True
         self.scene = None
         self.change_scene(MainMenu(self))
-        self.controll_manager = ControllManager()
 
     def run(self):
         while self.running:
@@ -106,6 +100,7 @@ class Main:
                 if event.type == pg.QUIT:
                     self.running = False
                     break
+            cm.update(events)
             self.scene.update(events)
             self.clock.tick(60)
             pg.display.flip()
@@ -153,7 +148,7 @@ class Overlay:
     def setup(self):
         pass
     
-    def proecss(self) -> pg.Surface:
+    def process(self) -> pg.Surface:
         pass
 
     def event(self, event_list) -> bool: # Trueで以降のイベントをブロック
@@ -207,9 +202,7 @@ class PauseMenu(Overlay):
         return screen
     
     def event(self, event_list):
-        actions = self.root_scene.main.controll_manager.update(event_list)
-        if actions["pause"]:
-            actions["pause"] = False
+        if cm.get_key_pressing_once("pause"):
             self.close()
         if self.buttons["back"].get_clicked_once():
             self.close()
@@ -263,20 +256,19 @@ class CharacterSelect(Scene):
 
 class Ingame(Scene):
     def setup(self):
-        self.player = Player()
+        self.player = UPlayer()
         self.enemies = pg.sprite.Group()
         self.projectiles = pg.sprite.Group()
         self.images = {}
         self.items = []
-        self.ui = {}
-        self.ui["hp_bar"] = Bar((0, 0), (400, 30), self.player.max_hp, self.player.hp, (255, 0, 0), True)
-        self.ui["stamina_bar"] = Bar((0, 30), (400, 30), self.player.max_stamina, self.player.stamina, (0, 0, 255), True)
+        self.overlays.append(IngameOverlay(self))
 
     def image_load(self, type:str, name:str):
         with open("./images_path.json", "r") as f:
             images_path = json.load(f)
-            for key, value in images_path[type][name].items():
-                self.images[type][name][key] = pg.image.load(value).convert_alpha()
+            for status, value in images_path[type][name].items():
+                for key, image in value.items():
+                    self.images[type][name][status][key] = pg.image.load(image).convert_alpha()
 
     def get_image(self, type:str, name:str, key:str):
         try:
@@ -292,28 +284,37 @@ class Ingame(Scene):
         screen.fill((255, 255, 255))
         self.player.update()
         self.player.draw(screen)
-        self.ui["hp_bar"].value = self.player.hp
-        self.ui["stamina_bar"].value = self.player.stamina
-        for ui in self.ui.values():
-            ui.update(screen)
     
     def event(self, event_list: list[pg.event.Event]):
-        actions = self.main.controll_manager.update(event_list)
         speed = 2
-        if actions["dash"] and self.player.can_dash:
+        if cm.get_key_pressing("dash") and self.player.can_dash:
             speed = 7
             self.player.decrease_stamina(1)
-        if actions["move_left"]:
+        if cm.get_key_pressing("move_left"):
             self.player.move((-speed, 0))
-        if actions["move_right"]:
+        if cm.get_key_pressing("move_right"):
             self.player.move((speed, 0))
-        if actions["move_up"]:
+        if cm.get_key_pressing("move_up"):
             self.player.move((0, -speed))
-        if actions["move_down"]:
+        if cm.get_key_pressing("move_down"):
             self.player.move((0, speed))
-        if actions["pause"]:
-            actions["pause"] = False
+        if cm.get_key_pressing_once("pause"):
             self.overlays.append(PauseMenu(self))
+
+class IngameOverlay(Overlay):
+    def setup(self):
+        self.event_block = False
+        self.ui = {}
+        self.ui["hp_bar"] = Bar((0, 0), (400, 30), self.root_scene.player.max_hp, self.root_scene.player.hp, (255, 0, 0), True)
+        self.ui["stamina_bar"] = Bar((0, 30), (400, 30), self.root_scene.player.max_stamina, self.root_scene.player.stamina, (0, 0, 255), True)
+        
+    def process(self) -> pg.Surface:
+        surface = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+        self.ui["hp_bar"].value = self.root_scene.player.hp
+        self.ui["stamina_bar"].value = self.root_scene.player.stamina
+        for ui in self.ui.values():
+            ui.update(surface)
+        return surface
 
 class Bar:
     def __init__(self, coordinate: tuple[int, int], size: tuple[int, int], max_value, value, color, show_value=True):
@@ -324,6 +325,8 @@ class Bar:
         self.value = value
         self.show_value = show_value
         self.ghost = self.value
+        self.ghost_max_countdown = 60
+        self.ghost_countdown = self.ghost_max_countdown
         self.decrease_rate = 0.5
 
     def update(self, screen: pg.Surface):
@@ -332,8 +335,11 @@ class Bar:
         if self.value < 0:
             self.value = 0
         if self.value < self.ghost:
-            self.ghost -= self.decrease_rate
+            self.ghost_countdown -= 1
+            if self.ghost_countdown <= 0:
+                self.ghost -= self.decrease_rate
         else:
+            self.ghost_countdown = self.ghost_max_countdown
             self.ghost = self.value
         self.render(screen)
 
@@ -354,15 +360,18 @@ class Player(pg.sprite.Sprite):
     def __init__(self):
         self.x = 0
         self.y = 0
-        self.hp = 100
         self.max_hp = 100
+        self.hp = self.max_hp
         self.max_stamina = 150
         self.stamina = self.max_stamina
         self.stamina_cooldown = 0
         self.can_dash = True
-        self.image = pg.Surface((50, 50))
-        self.image.fill((0, 0, 0))
-        self.rect = self.image.get_rect()
+        self.images = {}
+        self.surface = pg.Surface((32, 32))
+        self.rect = self.surface.get_rect()
+        self.animation = "idle"
+        self.direction = "right" #right or left
+        self.tick = 0
 
     def decrease_stamina(self, amount: int):
         if self.stamina - amount < 0:
@@ -377,8 +386,24 @@ class Player(pg.sprite.Sprite):
         else:
             self.stamina += amount
     
+    def decrease_hp(self, amount: int):
+        if self.hp - amount < 0:
+            self.hp = 0
+        else:
+            self.hp -= amount
+    
+    def increase_hp(self, amount: int):
+        if self.hp + amount > self.max_hp:
+            self.hp = self.max_hp
+        else:
+            self.hp += amount
+    
     def move(self, direction: tuple[int, int]):
         vx, vy = direction
+        if vx > 0:
+            self.direction = "right"
+        elif vx < 0:
+            self.direction = "left"
         self.x += vx
         self.y += vy
     
@@ -392,9 +417,23 @@ class Player(pg.sprite.Sprite):
             self.stamina_cooldown -= 1
         else:
             self.increase_stamina(1)
+        self.tick += 1
 
     def draw(self, screen: pg.Surface):
-        screen.blit(self.image, (self.x, self.y))
+        blink = str(self.tick % 2)
+        if self.animation == "idle":
+            img = self.images["idle"]
+            screen.blit(img[blink][self.direction], (self.x, self.y))
+        elif self.animation == "walk":
+            img = self.images["walk"]
+            screen.blit(img[blink][self.direction], (self.x, self.y))
+            
+            
+
+class UPlayer(Player):
+    def __init__(self):
+        super().__init__()
+        self.images = image_manager.get("player", "U")
 
 
 
@@ -417,17 +456,13 @@ class ControllManager:
             "skill2": pg.K_e,
             "skill3": pg.K_SPACE
         }
-        self.key_hold = {
-            "move_left": False,
-            "move_right": False,
-            "move_up": False,
-            "move_down": False,
-            "dash": False,
-            "pause": False,
-            "skill1": False,
-            "skill2": False,
-            "skill3": False
-        }
+        self.key_pressing = {}
+        for action in self.key_map.keys():
+            self.key_pressing[action] = False
+
+        self.key_hold_tick = {}
+        for action in self.key_map.keys():
+            self.key_hold_tick[action] = 0
 
 
     def set_key(self, key, action):
@@ -438,14 +473,67 @@ class ControllManager:
             if event.type == pg.KEYDOWN:
                 for action, key in self.key_map.items():
                     if event.key == key:
-                        self.key_hold[action] = True
+                        self.key_pressing[action] = True
             if event.type == pg.KEYUP:
                 for action, key in self.key_map.items():
                     if event.key == key:
-                        self.key_hold[action] = False
-        return self.key_hold
+                        self.key_pressing[action] = False
+        for action in self.key_map.keys():
+            if self.key_pressing[action]:
+                self.key_hold_tick[action] += 1
+            else:
+                self.key_hold_tick[action] = 0
+    
+    def get_key_pressing(self, action):
+        if action in self.key_pressing.keys():
+            return self.key_pressing[action]
+        
+    def get_key_pressing_once(self, action):
+        if action in self.key_hold_tick.keys():
+            if self.key_pressing[action] and self.key_hold_tick[action] == 1:
+                self.key_hold_tick[action] += 1
+                return True
 
-                
+    
+    def get_key_hold_tick(self, action):
+        if action in self.key_hold_tick.keys():
+            return self.key_hold_tick[action]
+
+
+class ImageManager:
+    def __init__(self) -> None:
+        self.images = {}
+    
+    def load(self, type: str, name: str):
+        with open("./images_path.json", "r") as f:
+            images_path = json.load(f)
+            if type not in self.images:
+                self.images[type] = {}
+            if name not in self.images[type]:
+                self.images[type][name] = {}
+            for status, value in images_path[type][name].items():
+                self.images[type][name][status] = {}
+                for key, image in value.items():
+                    self.images[type][name][status][key] = {}
+                    image_surface = pg.image.load(image).convert_alpha()
+                    image_surface = pg.transform.scale(image_surface, (50, 50))
+                    self.images[type][name][status][key]["right"] = image_surface
+                    self.images[type][name][status][key]["left"] = pg.transform.flip(image_surface, True, False)
+    
+    def get(self, type: str, name: str):
+        dic = self.images.get(type, None)
+        if dic is None:
+            self.load(type, name)
+            dic = self.images.get(type, None)
+        images = dic.get(name, None)
+        if images is None:
+            self.load(type, name)
+            images = dic.get(name, None)
+        return images
+
+
+cm = ControllManager()
+image_manager = ImageManager()
 
 if __name__ == "__main__":
     main = Main()
