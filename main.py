@@ -218,13 +218,34 @@ class SettingMenu(Overlay):
     def setup(self):
         self.buttons = {}
         self.buttons["back"] = Button("Back", (600, 500), (100, 50), (100, 100, 100))
-        self.buttons["pause"] = Button("Pause", (100, 200), (100, 50), (100, 100, 100))
+        self.buttons["control"] = Button("Control", (100, 200), (100, 50), (100, 100, 100))
 
     def process(self):
         screen = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
         screen.fill((0, 0, 0, 200))
 
         text = Tools.text_surface("Settings", 100, (255, 255, 255))
+        screen.blit(text, (50, 50))
+        for button in self.buttons.values():
+            button.update(screen)
+        return screen
+    
+    def event(self, event_list):
+        if self.buttons["back"].get_clicked_once():
+            self.close()
+        if self.buttons["control"].get_clicked_once():
+            self.root_scene.overlays.append(ControlMenu(self.root_scene))
+        return self.event_block
+class ControlMenu(Overlay):
+    def setup(self):
+        self.buttons = {}
+        self.buttons["back"] = Button("Back", (600, 500), (100, 50), (100, 100, 100))
+
+    def process(self):
+        screen = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+        screen.fill((0, 0, 0, 200))
+
+        text = Tools.text_surface("Control", 100, (255, 255, 255))
         screen.blit(text, (50, 50))
         for button in self.buttons.values():
             button.update(screen)
