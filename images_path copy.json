@@ -1,0 +1,26 @@
+[
+    {
+        "type" : "character",
+        "name" : "U",
+        "status" : [
+            "idle",
+            "walk"
+        ],
+        "animations": {
+            "idle": {
+                "length": 2,
+                "frames": [
+                    "./assets/player/U/idle/0.png",
+                    "./assets/player/U/idle/1.png"
+                ]
+            },
+            "walk": {
+                "length": 2,
+                "frames": [
+                    "./assets/player/U/walk/0.png",
+                    "./assets/player/U/walk/1.png"
+                ]
+            }
+        }
+    }
+]
