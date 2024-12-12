@@ -1,15 +1,26 @@
-{
-    "player": {
-        "U": {
+[
+    {
+        "type" : "character",
+        "name" : "U",
+        "status" : [
+            "idle",
+            "walk"
+        ],
+        "animations": {
             "idle": {
-                "0": "assets/player/U/idle/0.png",
-                "1": "assets/player/U/idle/1.png"
+                "length": 2,
+                "frames": [
+                    "./assets/player/U/idle/0.png",
+                    "./assets/player/U/idle/1.png"
+                ]
             },
             "walk": {
-                "0": "assets/player/U/walk/0.png",
-                "1": "assets/player/U/walk/1.png"
+                "length": 2,
+                "frames": [
+                    "./assets/player/U/walk/0.png",
+                    "./assets/player/U/walk/1.png"
+                ]
             }
-
         }
     }
-}
+]

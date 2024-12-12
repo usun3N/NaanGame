@@ -524,23 +524,12 @@ class ControllManager:
 class ImageManager:
     def __init__(self) -> None:
         self.images = {}
-    
+        
     def load(self, type: str, name: str):
-        with open("./images_path.json", "r") as f:
-            images_path = json.load(f)
-            if type not in self.images:
-                self.images[type] = {}
-            if name not in self.images[type]:
-                self.images[type][name] = {}
-            for status, value in images_path[type][name].items():
-                self.images[type][name][status] = {}
-                for key, image in value.items():
-                    self.images[type][name][status][key] = {}
-                    image_surface = pg.image.load(image).convert_alpha()
-                    image_surface = pg.transform.scale(image_surface, (50, 50))
-                    self.images[type][name][status][key]["right"] = image_surface
-                    self.images[type][name][status][key]["left"] = pg.transform.flip(image_surface, True, False)
-    
+        
+        self.images[type][name] = 
+                
+
     def get(self, type: str, name: str):
         dic = self.images.get(type, None)
         if dic is None:
