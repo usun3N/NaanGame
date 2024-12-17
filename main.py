@@ -292,11 +292,13 @@ class Ingame(Scene):
         self.items = []
         self.overlays.append(IngameOverlay(self))
         self.camera = TrackingCamera(self.player)
+        self.FIELD_SIZE = (1500, 1500)
 
     def process(self):
         screen = self.main.screen
-        screen.fill(255, 255, 255)
-        surface = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
+        screen.fill((200, 200, 200))
+        surface = pg.Surface(self.FIELD_SIZE, pg.SRCALPHA)
+        surface.fill((255, 255, 255))
         self.player.update()
         self.player.draw(surface)
 
