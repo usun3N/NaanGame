@@ -1,0 +1,18 @@
+[
+    {
+        "name": "character_U_idle_0",
+        "path": "character/U/idle/0.png"
+    },
+    {
+        "name": "character_U_idle_1",
+        "path": "character/U/idle/1.png"
+    },
+    {
+        "name": "character_U_walk_0",
+        "path": "character/U/walk/0.png"
+    },
+    {
+        "name": "character_U_walk_1",
+        "path": "character/U/walk/1.png"
+    }
+]

@@ -284,22 +284,6 @@ class Ingame(Scene):
         self.items = []
         self.overlays.append(IngameOverlay(self))
 
-    def image_load(self, type:str, name:str):
-        with open("./images_path.json", "r") as f:
-            images_path = json.load(f)
-            for status, value in images_path[type][name].items():
-                for key, image in value.items():
-                    self.images[type][name][status][key] = pg.image.load(image).convert_alpha()
-
-    def get_image(self, type:str, name:str, key:str):
-        try:
-            return self.images[type][name][key]
-        except KeyError:
-            self.image_load(type, name)
-            return self.images[type][name][key]
-        
-
-
     def process(self):
         screen = self.main.screen
         screen.fill((255, 255, 255))
@@ -387,10 +371,10 @@ class Player(pg.sprite.Sprite):
         self.stamina = self.max_stamina
         self.stamina_cooldown = 0
         self.can_dash = True
-        self.images = {}
+        self.animations = {}
         self.surface = pg.Surface((32, 32))
         self.rect = self.surface.get_rect()
-        self.animation = "idle"
+        self.status = "idle"
         self.direction = "right" #right or left
         self.tick = 0
 
@@ -441,20 +425,20 @@ class Player(pg.sprite.Sprite):
         self.tick += 1
 
     def draw(self, screen: pg.Surface):
-        blink = str(self.tick % 2)
-        if self.animation == "idle":
-            img = self.images["idle"]
-            screen.blit(img[blink][self.direction], (self.x, self.y))
-        elif self.animation == "walk":
-            img = self.images["walk"]
-            screen.blit(img[blink][self.direction], (self.x, self.y))
+        surface = self.animations[self.status].get_surface()
+        if self.direction == "left":
+            surface = pg.transform.flip(surface, True, False)
+        screen.blit(surface, (self.x, self.y))
             
             
 
 class UPlayer(Player):
     def __init__(self):
         super().__init__()
-        self.images = image_manager.get("player", "U")
+        self.animations = {
+            "idle" : am.get_animation("U_idle_animation"),
+            "walk" : am.get_animation("U_idle_animation")
+        }
 
 
 
@@ -520,30 +504,78 @@ class ControllManager:
         if action in self.key_hold_tick.keys():
             return self.key_hold_tick[action]
 
+class Image_:
+    def __init__(self, name: str, path: str) -> None:
+        self.image = None
+        self.path = "./assets/" + path
+        self.name = name
+
+    def load(self):
+        self.image = pg.image.load(self.path).convert_alpha()
+    
+    def unload(self):
+        self.image = None
+
+    def get_surface(self) -> pg.Surface:
+        if self.image is None:
+            self.load()
+        return self.image
+        
+
+class Animation:
+    def __init__(self, name:str, frames:list[Image_], interval:int) -> None:
+        self.name = name
+        self.frames = frames
+        self.length = len(frames)
+        self.interval = interval
+        self.now_frame = 0
+        self.tick = 0
+    
+    def reset(self):
+        self.now_frame = 0
+        self.tick = 0
+
+    def get_surface(self) -> pg.Surface:
+        if self.tick % self.interval == 0:
+            self.now_frame += 1
+            if self.now_frame >= self.length:
+                self.now_frame = 0
+            self.tick = 0
+        return self.frames[self.now_frame].get_surface()
 
 class ImageManager:
     def __init__(self) -> None:
         self.images = {}
-        
-    def load(self, type: str, name: str):
-        
-        self.images[type][name] = 
-                
+        self.load("./images.json")
+    def load(self, file_path):
+        with open(file_path) as f:
+            data_list = json.load(f)
+            for data in data_list:
+                name, path = data["name"], data["path"]
+                self.images[name] = Image_(name, path)
 
-    def get(self, type: str, name: str):
-        dic = self.images.get(type, None)
-        if dic is None:
-            self.load(type, name)
-            dic = self.images.get(type, None)
-        images = dic.get(name, None)
-        if images is None:
-            self.load(type, name)
-            images = dic.get(name, None)
-        return images
+    def get_image(self, name:str):
+        return self.images[name]
 
+class AnimationManager:
+    def __init__(self, image_manager: ImageManager) -> None:
+        self.animations = {}
+        self.image_manager = image_manager
+        self.load("./animations.json")
+
+    def load(self, file_path):
+        with open(file_path) as f:
+            data_list = json.load(f)
+            for data in data_list:
+                name, frames, interval = data["name"], data["frames"], data["interval"]
+                self.animations[name] = Animation(name, [self.image_manager.get_image(i) for i in frames], interval)
+    
+    def get_animation(self, name:str):
+        return self.animations[name]
 
 cm = ControllManager()
-image_manager = ImageManager()
+im = ImageManager()
+am = AnimationManager(im)
 
 if __name__ == "__main__":
     main = Main()
