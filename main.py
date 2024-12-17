@@ -274,6 +274,14 @@ class CharacterSelect(Scene):
             self.main.change_scene(MainMenu(self.main))
         if self.buttons["start"].get_clicked_once():
             self.main.change_scene(Ingame(self.main))
+class TrackingCamera:
+    def __init__(self, object):
+        self.object = object
+    
+    def get_coordinate(self):
+        x = -self.object.x + WIDTH // 2
+        y = -self.object.y + HEIGHT // 2
+        return x, y
 
 class Ingame(Scene):
     def setup(self):
@@ -283,12 +291,16 @@ class Ingame(Scene):
         self.images = {}
         self.items = []
         self.overlays.append(IngameOverlay(self))
+        self.camera = TrackingCamera(self.player)
 
     def process(self):
         screen = self.main.screen
-        screen.fill((255, 255, 255))
+        screen.fill(255, 255, 255)
+        surface = pg.Surface((WIDTH, HEIGHT), pg.SRCALPHA)
         self.player.update()
-        self.player.draw(screen)
+        self.player.draw(surface)
+
+        screen.blit(surface, self.camera.get_coordinate())
     
     def event(self, event_list: list[pg.event.Event]):
         speed = 2
